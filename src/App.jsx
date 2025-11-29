@@ -310,7 +310,10 @@ const Dashboard = ({ data, setActiveTab }) => {
         <div style={{ position: 'absolute', top: '-60px', right: '-60px', width: '200px', height: '200px', background: `radial-gradient(circle, ${colors.accent}25 0%, transparent 70%)`, borderRadius: '50%' }} />
         <div style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ fontSize: '11px', color: colors.accent, fontWeight: 600, letterSpacing: '2px', marginBottom: '10px' }}>WEEK {currentWeek} • {nflState?.season || 2024} SEASON</div>
-          <h1 style={{ fontFamily: "'Oswald', sans-serif", fontSize: '26px', color: colors.white, margin: '0 0 12px 0', fontWeight: 700 }}>League of Misfits 🛡️</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+            <img src="/logo1.png" alt="League of Misfits" style={{ height: '50px', width: 'auto' }} />
+            <h1 style={{ fontFamily: "'Oswald', sans-serif", fontSize: '26px', color: colors.white, margin: 0, fontWeight: 700 }}>League of Misfits 🛡️</h1>
+          </div>
           <p style={{ color: colors.silver, fontSize: '13px', margin: 0 }}>8 years of dynasty glory • Est. 2017</p>
         </div>
       </Card>
@@ -324,193 +327,139 @@ const Dashboard = ({ data, setActiveTab }) => {
       
       <Card>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <h2 style={{ color: colors.white, fontSize: '15px', margin: 0, fontFamily: "'Oswald', sans-serif" }}>WEEK {currentWeek} MATCHUPS</h2>
+          <h2 style={{ fontSize: '16px', fontWeight: 700, color: colors.white, margin: 0 }}>⚔️ THIS WEEK'S MATCHUPS</h2>
           {isLive && <LiveBadge />}
         </div>
-        {matchups.length === 0 ? (
-          <div style={{ color: colors.silver, textAlign: 'center', padding: '20px' }}>No matchup data</div>
-        ) : (
-          matchups.slice(0, 3).map((m, i) => (
-            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px', background: colors.navyLight + '30', borderRadius: '10px', marginBottom: i < 2 ? '10px' : 0 }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ color: m.score1 >= m.score2 ? colors.white : colors.silver, fontWeight: 600, fontSize: '13px', marginBottom: '4px' }}>{m.team1} {m.score1 > m.score2 && '✓'}</div>
-                <div style={{ color: m.score1 >= m.score2 ? colors.success : colors.silver, fontSize: '22px', fontWeight: 700, fontFamily: "'Oswald', sans-serif" }}>{m.score1.toFixed(2)}</div>
+        {matchups.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {matchups.map((m, i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: colors.navyLight + '20', borderRadius: '8px' }}>
+                <div style={{ flex: 1, textAlign: 'left' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: colors.white }}>{m.team1}</div>
+                  <div style={{ fontSize: '18px', fontWeight: 700, color: colors.accent }}>{m.score1.toFixed(1)}</div>
+                </div>
+                <div style={{ textAlign: 'center', color: colors.silver, fontSize: '12px', fontWeight: 600 }}>VS</div>
+                <div style={{ flex: 1, textAlign: 'right' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: colors.white }}>{m.team2}</div>
+                  <div style={{ fontSize: '18px', fontWeight: 700, color: colors.accent }}>{m.score2.toFixed(1)}</div>
+                </div>
               </div>
-              <div style={{ color: colors.silver, fontSize: '11px', padding: '0 16px', fontWeight: 600 }}>VS</div>
+            ))}
+          </div>
+        ) : (
+          <p style={{ color: colors.silver, textAlign: 'center', margin: 0 }}>No matchups yet</p>
+        )}
+      </Card>
+    </div>
+  )
+}
+
+const Standings = ({ data }) => {
+  const { standings, nflState } = data
+  
+  return (
+    <div style={{ padding: '20px', paddingBottom: '100px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <Card style={{ marginBottom: '12px' }}>
+        <h2 style={{ fontSize: '18px', fontWeight: 700, color: colors.white, margin: '0 0 12px 0' }}>📊 LEAGUE STANDINGS</h2>
+        <div style={{ fontSize: '13px', color: colors.silver, marginBottom: '8px' }}>WEEK {nflState?.week || 1} • {nflState?.season || 2024} SEASON</div>
+      </Card>
+      {standings.map((s, i) => (
+        <Card key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px' }}>
+          <div style={{ fontSize: '24px', fontWeight: 700, color: i === 0 ? colors.gold : colors.silver, minWidth: '30px' }}>{s.rank}.</div>
+          {s.avatar && <img src={s.avatar} alt={s.name} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} />}
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: colors.white }}>{s.name}</div>
+            <div style={{ fontSize: '11px', color: colors.silver }}>
+              {s.wins}W - {s.losses}L • {(s.points_for || s.pf || 0).toFixed(1)} PF
+            </div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: colors.accent }}>{(s.points_for || s.pf || 0).toFixed(0)}</div>
+            <div style={{ fontSize: '10px', color: colors.silver }}>pts</div>
+          </div>
+        </Card>
+      ))}
+    </div>
+  )
+}
+
+const Matchups = ({ data }) => {
+  const [week, setWeek] = useState(data.currentWeek || 1)
+  const { matchups } = useMatchups(week)
+  
+  return (
+    <div style={{ padding: '20px', paddingBottom: '100px' }}>
+      <Card style={{ marginBottom: '16px' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'space-between' }}>
+          <button onClick={() => setWeek(Math.max(1, week - 1))} style={{ background: colors.navyLight, border: 'none', color: colors.white, padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>← PREV</button>
+          <span style={{ fontSize: '14px', fontWeight: 700, color: colors.accent }}>WEEK {week}</span>
+          <button onClick={() => setWeek(week + 1)} style={{ background: colors.navyLight, border: 'none', color: colors.white, padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>NEXT →</button>
+        </div>
+      </Card>
+      {matchups.length > 0 ? (
+        matchups.map((m, i) => (
+          <Card key={i} style={{ marginBottom: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: colors.white, marginBottom: '4px' }}>{m.team1}</div>
+                <div style={{ fontSize: '20px', fontWeight: 700, color: colors.accent }}>{m.score1.toFixed(1)}</div>
+              </div>
+              <div style={{ textAlign: 'center', color: colors.silver }}>VS</div>
               <div style={{ flex: 1, textAlign: 'right' }}>
-                <div style={{ color: m.score2 > m.score1 ? colors.white : colors.silver, fontWeight: 600, fontSize: '13px', marginBottom: '4px' }}>{m.score2 > m.score1 && '✓ '}{m.team2}</div>
-                <div style={{ color: m.score2 > m.score1 ? colors.success : colors.silver, fontSize: '22px', fontWeight: 700, fontFamily: "'Oswald', sans-serif" }}>{m.score2.toFixed(2)}</div>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: colors.white, marginBottom: '4px' }}>{m.team2}</div>
+                <div style={{ fontSize: '20px', fontWeight: 700, color: colors.accent }}>{m.score2.toFixed(1)}</div>
               </div>
             </div>
-          ))
-        )}
-        <button onClick={() => setActiveTab('matchups')} style={{ width: '100%', marginTop: '16px', padding: '12px', background: 'transparent', border: `1px solid ${colors.accent}`, borderRadius: '10px', color: colors.accent, fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-          View All Matchups <ChevronRight size={16} />
-        </button>
-      </Card>
-      
-      {weeklyHistory.length > 0 && (
-        <Card>
-          <h2 style={{ color: colors.white, fontSize: '15px', marginBottom: '20px', fontFamily: "'Oswald', sans-serif" }}>SCORING TRENDS</h2>
-          <ResponsiveContainer width="100%" height={180}>
-            <AreaChart data={weeklyHistory}>
-              <defs>
-                <linearGradient id="highGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={colors.success} stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor={colors.success} stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="week" stroke={colors.silver} fontSize={10} tickFormatter={(v) => `W${v}`} />
-              <YAxis stroke={colors.silver} fontSize={10} domain={['auto', 'auto']} />
-              <Tooltip contentStyle={{ background: colors.navyDark, border: `1px solid ${colors.navyLight}`, borderRadius: '8px', fontSize: '12px' }} />
-              <Area type="monotone" dataKey="high" stroke={colors.success} fill="url(#highGrad)" strokeWidth={2} name="High" />
-              <Line type="monotone" dataKey="avg" stroke={colors.accent} strokeWidth={2} dot={false} name="Avg" />
-              <Line type="monotone" dataKey="low" stroke={colors.danger} strokeWidth={2} dot={false} name="Low" />
-            </AreaChart>
-          </ResponsiveContainer>
+          </Card>
+        ))
+      ) : (
+        <Card style={{ textAlign: 'center', padding: '40px 20px' }}>
+          <p style={{ color: colors.silver, margin: 0 }}>No matchups for week {week}</p>
         </Card>
       )}
     </div>
   )
 }
 
-const Standings = ({ data }) => {
-  const { standings } = data
-  return (
-    <div style={{ padding: '20px' }}>
-      <h1 style={{ fontFamily: "'Oswald', sans-serif", fontSize: '22px', color: colors.white, marginBottom: '20px' }}>🏆 STANDINGS</h1>
-      <Card style={{ padding: 0, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ background: colors.navyLight }}>
-              <th style={{ padding: '14px 12px', textAlign: 'left', color: colors.silver, fontSize: '10px', fontWeight: 600 }}>#</th>
-              <th style={{ padding: '14px 12px', textAlign: 'left', color: colors.silver, fontSize: '10px', fontWeight: 600 }}>TEAM</th>
-              <th style={{ padding: '14px 12px', textAlign: 'center', color: colors.silver, fontSize: '10px', fontWeight: 600 }}>REC</th>
-              <th style={{ padding: '14px 12px', textAlign: 'right', color: colors.silver, fontSize: '10px', fontWeight: 600 }}>PF</th>
-            </tr>
-          </thead>
-          <tbody>
-            {standings.map((team, i) => (
-              <tr key={i} style={{ borderBottom: `1px solid ${colors.navyLight}30`, background: i === 0 ? `${colors.gold}08` : 'transparent' }}>
-                <td style={{ padding: '16px 12px' }}><span style={{ color: i === 0 ? colors.gold : i < 4 ? colors.success : colors.silver, fontWeight: 700, fontSize: '15px' }}>{team.rank}</span></td>
-                <td style={{ padding: '16px 12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: colors.navyLight, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                      {team.avatar ? <img src={team.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <User size={16} color={colors.silver} />}
-                    </div>
-                    <div>
-                      <div style={{ color: colors.white, fontWeight: 600, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>{team.name}{i === 0 && <Crown size={14} color={colors.gold} />}</div>
-                      {team.streak && <div style={{ color: team.streak.startsWith('W') ? colors.success : colors.danger, fontSize: '11px' }}>{team.streak}</div>}
-                    </div>
-                  </div>
-                </td>
-                <td style={{ padding: '16px 12px', textAlign: 'center', color: colors.white, fontWeight: 600 }}>{team.wins}-{team.losses}</td>
-                <td style={{ padding: '16px 12px', textAlign: 'right', color: colors.accent, fontWeight: 600 }}>{(team.points_for || team.pf || 0).toFixed(1)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Card>
-    </div>
-  )
-}
-
-const Matchups = ({ data }) => {
-  const { currentWeek } = data
-  const [selectedWeek, setSelectedWeek] = useState(currentWeek)
-  const { matchups, loading } = useMatchups(selectedWeek)
-  useEffect(() => { setSelectedWeek(currentWeek) }, [currentWeek])
-  
-  return (
-    <div style={{ padding: '20px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1 style={{ fontFamily: "'Oswald', sans-serif", fontSize: '22px', color: colors.white, margin: 0 }}>⚔️ MATCHUPS</h1>
-        <select value={selectedWeek} onChange={(e) => setSelectedWeek(parseInt(e.target.value))} style={{ background: colors.navyDark, border: `1px solid ${colors.navyLight}`, borderRadius: '8px', padding: '8px 12px', color: colors.white, fontSize: '13px' }}>
-          {Array.from({ length: Math.max(currentWeek, 1) }, (_, i) => i + 1).map(w => (<option key={w} value={w}>Week {w}</option>))}
-        </select>
-      </div>
-      {loading ? <LoadingSpinner /> : matchups.length === 0 ? (
-        <Card><div style={{ textAlign: 'center', color: colors.silver, padding: '40px' }}>No matchup data</div></Card>
-      ) : (
-        matchups.map((m, i) => (
-          <Card key={i} style={{ marginBottom: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ color: m.score1 >= m.score2 ? colors.white : colors.silver, fontWeight: 700, fontSize: '15px', marginBottom: '6px' }}>{m.team1} {m.score1 > m.score2 && <span style={{ color: colors.success }}>✓</span>}</div>
-                <div style={{ fontSize: '32px', fontWeight: 700, color: m.score1 >= m.score2 ? colors.success : colors.white, fontFamily: "'Oswald', sans-serif" }}>{m.score1.toFixed(2)}</div>
-              </div>
-              <div style={{ padding: '0 20px', color: colors.silver, fontSize: '13px', fontWeight: 600 }}>VS</div>
-              <div style={{ flex: 1, textAlign: 'right' }}>
-                <div style={{ color: m.score2 > m.score1 ? colors.white : colors.silver, fontWeight: 700, fontSize: '15px', marginBottom: '6px' }}>{m.score2 > m.score1 && <span style={{ color: colors.success }}>✓ </span>}{m.team2}</div>
-                <div style={{ fontSize: '32px', fontWeight: 700, color: m.score2 > m.score1 ? colors.success : colors.white, fontFamily: "'Oswald', sans-serif" }}>{m.score2.toFixed(2)}</div>
-              </div>
-            </div>
-            <div style={{ marginTop: '16px', height: '6px', background: colors.navyLight, borderRadius: '3px', overflow: 'hidden' }}>
-              <div style={{ width: `${(m.score1 / Math.max(m.score1 + m.score2, 1)) * 100}%`, height: '100%', background: m.score1 >= m.score2 ? colors.success : colors.accent }} />
-            </div>
-          </Card>
-        ))
-      )}
-    </div>
-  )
-}
-
 const Awards = ({ data }) => {
-  const { currentWeek } = data
-  const { awards, loading } = useAwards(currentWeek)
+  const { awards, loading } = useAwards(data.currentWeek)
   
   return (
-    <div style={{ padding: '20px' }}>
-      <h1 style={{ fontFamily: "'Oswald', sans-serif", fontSize: '22px', color: colors.white, marginBottom: '20px' }}>🎖️ AWARDS</h1>
-      {loading ? <div style={{textAlign: 'center', color: colors.silver}}>Loading awards from the Brain...</div> : awards.length === 0 ? (
-        <Card><div style={{ textAlign: 'center', color: colors.silver, padding: '40px' }}>No awards yet</div></Card>
+    <div style={{ padding: '20px', paddingBottom: '100px' }}>
+      {loading ? (
+        <LoadingSpinner />
+      ) : awards.length === 0 ? (
+        <Card style={{ textAlign: 'center', padding: '40px 20px' }}>
+          <p style={{ color: colors.silver, margin: 0 }}>No awards data available</p>
+        </Card>
       ) : (
-        awards.map((w, i) => (
-          <Card key={i} style={{ marginBottom: '20px' }}>
-            <div style={{ color: colors.accent, fontSize: '11px', fontWeight: 600, marginBottom: '16px', letterSpacing: '2px' }}>WEEK {w.week}</div>
-            
-            {/* Top Dawg */}
-            {w.topDawg && (
-              <div style={{ padding: '16px', background: `${colors.gold}15`, borderRadius: '12px', borderLeft: `4px solid ${colors.gold}`, marginBottom: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ fontSize: '28px' }}>👑</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ color: colors.gold, fontSize: '10px', fontWeight: 600 }}>TOP DAWG</div>
-                    <div style={{ color: colors.white, fontSize: '17px', fontWeight: 700 }}>{w.topDawg.team}</div>
-                  </div>
-                  <div style={{ color: colors.gold, fontSize: '18px', fontWeight: 700 }}>{w.topDawg.points}</div>
+        awards.map((week, i) => (
+          <div key={i} style={{ marginBottom: '20px' }}>
+            <Card style={{ marginBottom: '12px', background: `linear-gradient(135deg, ${colors.navyLight} 0%, ${colors.navy} 100%)` }}>
+              <h3 style={{ fontSize: '14px', fontWeight: 700, color: colors.accent, margin: '0 0 12px 0' }}>WEEK {week.week}</h3>
+              {week.topDawg && (
+                <div style={{ marginBottom: '12px', paddingBottom: '12px', borderBottom: `1px solid ${colors.navyLight}` }}>
+                  <div style={{ fontSize: '11px', color: colors.silver, marginBottom: '4px' }}>🏆 TOP DAWG</div>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: colors.gold }}>{week.topDawg.team}</div>
+                  <div style={{ fontSize: '11px', color: colors.accent }}>{week.topDawg.points} points</div>
                 </div>
-              </div>
-            )}
-            
-            {/* Super Weenie */}
-            {w.superWeenie && (
-              <div style={{ padding: '16px', background: `${colors.danger}15`, borderRadius: '12px', borderLeft: `4px solid ${colors.danger}`, marginBottom: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ fontSize: '28px' }}>🌭</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ color: colors.danger, fontSize: '10px', fontWeight: 600 }}>SUPER WEENIE</div>
-                    <div style={{ color: colors.white, fontSize: '17px', fontWeight: 700 }}>{w.superWeenie.team}</div>
-                  </div>
-                  <div style={{ color: colors.danger, fontSize: '18px', fontWeight: 700 }}>{w.superWeenie.points}</div>
+              )}
+              {week.superWeenie && (
+                <div style={{ marginBottom: '12px', paddingBottom: '12px', borderBottom: `1px solid ${colors.navyLight}` }}>
+                  <div style={{ fontSize: '11px', color: colors.silver, marginBottom: '4px' }}>🌭 SUPER WEENIE</div>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: colors.danger }}>{week.superWeenie.team}</div>
+                  <div style={{ fontSize: '11px', color: colors.accent }}>{week.superWeenie.points} points</div>
                 </div>
-              </div>
-            )}
-            
-            {/* Horse's Ass */}
-            {w.horsesAss && (
-              <div style={{ padding: '16px', background: `${colors.warning}15`, borderRadius: '12px', borderLeft: `4px solid ${colors.warning}` }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ fontSize: '28px' }}>🐴</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ color: colors.warning, fontSize: '10px', fontWeight: 600 }}>HORSE'S ASS: {w.horsesAss.title?.toUpperCase()}</div>
-                    <div style={{ color: colors.white, fontSize: '17px', fontWeight: 700 }}>{w.horsesAss.team}</div>
-                    <div style={{ color: colors.silver, fontSize: '12px', marginTop: '4px' }}>{w.horsesAss.reason}</div>
-                  </div>
+              )}
+              {week.horsesAss && (
+                <div>
+                  <div style={{ fontSize: '11px', color: colors.silver, marginBottom: '4px' }}>🐴 HORSE'S ASS</div>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: colors.warning }}>{week.horsesAss.team}</div>
+                  <div style={{ fontSize: '11px', color: colors.silver }}>{week.horsesAss.reason}</div>
                 </div>
-              </div>
-            )}
-          </Card>
+              )}
+            </Card>
+          </div>
         ))
       )}
     </div>
@@ -522,50 +471,69 @@ const AIChat = () => {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   
-  const send = () => {
-    if (!input.trim() || loading) return
-    setMessages(prev => [...prev, { role: 'user', content: input }])
+  const handleSend = async () => {
+    if (!input.trim()) return
+    
+    const userMsg = { role: 'user', content: input }
+    setMessages(prev => [...prev, userMsg])
     setInput('')
     setLoading(true)
-    setTimeout(() => {
-      const responses = ["Based on recent performance, target high-upside waiver players! 🎯", "That trade looks fair - maybe counter for a little more value 💪", "Ha! That team's bench is outscoring their starters! 😂", "Playoff race is TIGHT - every game matters now! 🔥"]
-      setMessages(prev => [...prev, { role: 'assistant', content: responses[Math.floor(Math.random() * responses.length)] }])
+    
+    try {
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.REACT_APP_OPENAI_KEY}` },
+        body: JSON.stringify({ model: 'gpt-3.5-turbo', messages: [...messages, userMsg], max_tokens: 150 })
+      })
+      const data = await res.json()
+      const reply = data.choices?.[0]?.message?.content || "I couldn't process that. Try again!"
+      setMessages(prev => [...prev, { role: 'assistant', content: reply }])
+    } catch (e) {
+      setMessages(prev => [...prev, { role: 'assistant', content: '❌ Connection error. Check your API key!' }])
+    } finally {
       setLoading(false)
-    }, 1000)
+    }
   }
   
   return (
-    <div style={{ padding: '20px', height: 'calc(100vh - 160px)', display: 'flex', flexDirection: 'column' }}>
-      <h1 style={{ fontFamily: "'Oswald', sans-serif", fontSize: '22px', color: colors.white, marginBottom: '16px' }}>🤖 AI CHAT</h1>
+    <div style={{ padding: '20px', paddingBottom: '100px', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 140px)' }}>
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
-        {messages.map((m, i) => (
-          <div key={i} style={{ alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '85%', padding: '14px 18px', borderRadius: m.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px', background: m.role === 'user' ? colors.accent : colors.navyDark, border: m.role === 'user' ? 'none' : `1px solid ${colors.navyLight}`, color: colors.white, fontSize: '14px' }}>{m.content}</div>
+        {messages.map((msg, i) => (
+          <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+            <div style={{ maxWidth: '80%', background: msg.role === 'user' ? colors.accent : colors.navyLight, color: colors.white, padding: '12px 16px', borderRadius: '12px', fontSize: '13px', wordWrap: 'break-word' }}>
+              {msg.content}
+            </div>
+          </div>
         ))}
-        {loading && <div style={{ alignSelf: 'flex-start', padding: '14px 18px', borderRadius: '18px 18px 18px 4px', background: colors.navyDark, border: `1px solid ${colors.navyLight}`, color: colors.silver }}>...</div>}
       </div>
-      <div style={{ display: 'flex', gap: '12px' }}>
-        <input value={input} onChange={(e) => setInput(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && send()} placeholder="Ask anything..." style={{ flex: 1, padding: '14px 18px', background: colors.navyDark, border: `1px solid ${colors.navyLight}`, borderRadius: '14px', color: colors.white, fontSize: '14px', outline: 'none' }} />
-        <button onClick={send} disabled={loading || !input.trim()} style={{ padding: '14px 20px', background: colors.accent, border: 'none', borderRadius: '14px', color: colors.white, cursor: 'pointer' }}><Send size={20} /></button>
+      
+      <div style={{ display: 'flex', gap: '8px' }}>
+        <input 
+          type="text" 
+          value={input} 
+          onChange={(e) => setInput(e.target.value)} 
+          onKeyPress={(e) => e.key === 'Enter' && handleSend()} 
+          placeholder="Ask me anything..." 
+          style={{ flex: 1, background: colors.navyLight, border: `1px solid ${colors.navyLight}`, color: colors.white, padding: '10px 12px', borderRadius: '8px', fontSize: '13px', outline: 'none' }} 
+        />
+        <button 
+          onClick={handleSend} 
+          disabled={loading} 
+          style={{ background: colors.accent, border: 'none', color: colors.white, padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}>
+          {loading ? '...' : <Send size={18} />}
+        </button>
       </div>
     </div>
   )
 }
 
+// ============== MAIN APP ==============
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard')
   const data = useLeagueData()
   
   const renderPage = () => {
-    if (data.loading) return <LoadingSpinner />
-    if (data.error) return (
-      <div style={{ padding: '40px 20px', textAlign: 'center' }}>
-        <div style={{ fontSize: '48px', marginBottom: '16px' }}>😵</div>
-        <div style={{ color: colors.danger, marginBottom: '20px' }}>{data.error}</div>
-        <button onClick={data.refresh} style={{ padding: '12px 24px', background: colors.accent, border: 'none', borderRadius: '10px', color: colors.white, cursor: 'pointer' }}>Retry</button>
-      </div>
-    )
-    switch(activeTab) {
-      case 'dashboard': return <Dashboard data={data} setActiveTab={setActiveTab} />
+    switch (activeTab) {
       case 'standings': return <Standings data={data} />
       case 'matchups': return <Matchups data={data} />
       case 'awards': return <Awards data={data} />
@@ -587,7 +555,7 @@ export default function App() {
       
       <nav style={{ position: 'sticky', top: 0, height: '64px', background: colors.navyDark, borderBottom: `1px solid ${colors.navyLight}40`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', zIndex: 100 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ width: '40px', height: '40px', background: colors.white, borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px' }}>🛡️</div>
+          <img src="/logo1.png" alt="League of Misfits" style={{ height: '40px', width: 'auto' }} />
           <div>
             <div style={{ fontSize: '15px', fontWeight: 700, color: colors.white, fontFamily: "'Oswald', sans-serif" }}>LEAGUE OF MISFITS</div>
             <div style={{ fontSize: '10px', color: colors.silver, letterSpacing: '1px' }}>EST. 2017</div>
