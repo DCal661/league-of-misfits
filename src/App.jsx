@@ -18,6 +18,11 @@ const colors = {
   warning: '#ffa502'
 }
 
+// Players cache
+let playersCache = null
+let playersCacheTime = 0
+const PLAYERS_CACHE_TTL = 6 * 60 * 60 * 1000 // 6 hours
+
 const api = {
   base: 'https://api.sleeper.app/v1',
   async get(endpoint) {
@@ -34,7 +39,19 @@ const api = {
   league: () => api.get(`/league/${LEAGUE_ID}`),
   users: () => api.get(`/league/${LEAGUE_ID}/users`),
   rosters: () => api.get(`/league/${LEAGUE_ID}/rosters`),
-  matchups: (week) => api.get(`/league/${LEAGUE_ID}/matchups/${week}`)
+  matchups: (week) => api.get(`/league/${LEAGUE_ID}/matchups/${week}`),
+  players: async () => {
+    const now = Date.now()
+    if (playersCache && (now - playersCacheTime) < PLAYERS_CACHE_TTL) {
+      return playersCache
+    }
+    const data = await api.get('/players/nfl')
+    if (data) {
+      playersCache = data
+      playersCacheTime = now
+    }
+    return data || {}
+  }
 }
 
 function useLeagueData() {
@@ -101,6 +118,279 @@ function useWeeklyHistory(currentWeek) {
     fetchHistory()
   }, [currentWeek])
   return history
+}
+
+// Horse's Ass calculation - replicating Discord bot logic exactly
+async function calculateHorsesAss(week, matchups, rosters, rosterToUser, allPlayers) {
+  if (!matchups || matchups.length === 0) return null
+  
+  // Build player points map from all matchups
+  const allPlayerPoints = {}
+  matchups.forEach(m => {
+    if (m.players_points) {
+      Object.entries(m.players_points).forEach(([pid, pts]) => {
+        allPlayerPoints[pid] = pts || 0
+      })
+    }
+  })
+  
+  let title = ""
+  let winnerName = null
+  let reason = ""
+  
+  // Week 1: Most Bench Points
+  if (week === 1) {
+    title = "Most Bench Points"
+    let maxBenchPts = -1
+    matchups.forEach(m => {
+      const rid = m.roster_id
+      const starters = m.starters || []
+      const roster = rosters.find(r => r.roster_id === rid)
+      const players = roster?.players || []
+      const benchPts = players
+        .filter(p => !starters.includes(p))
+        .reduce((sum, p) => sum + (allPlayerPoints[p] || 0), 0)
+      if (benchPts > maxBenchPts) {
+        maxBenchPts = benchPts
+        winnerName = rosterToUser[rid]
+      }
+    })
+    if (winnerName) reason = `Their bench had the most points in the league with ${maxBenchPts.toFixed(2)}.`
+  }
+  
+  // Weeks 2,3,4,5,9: Lowest position score
+  else if ([2, 3, 4, 5, 9].includes(week)) {
+    const posMap = { 2: "QB", 3: "RB", 4: "K", 5: "WR", 9: "DEF" }
+    const pos = posMap[week]
+    title = `Lowest ${pos} Score`
+    let minScore = Infinity
+    matchups.forEach(m => {
+      const rid = m.roster_id
+      const starters = m.starters || []
+      starters.forEach(pid => {
+        const player = allPlayers[pid]
+        if (player && player.position === pos) {
+          const score = allPlayerPoints[pid] || 0
+          if (score < minScore) {
+            minScore = score
+            winnerName = rosterToUser[rid]
+          }
+        }
+      })
+    })
+    if (winnerName && minScore !== Infinity) reason = `Their starting ${pos} scored just ${minScore.toFixed(2)} points.`
+  }
+  
+  // Week 6: Lowest Flex Score
+  else if (week === 6) {
+    title = "Lowest Flex Score"
+    let minScore = Infinity
+    matchups.forEach(m => {
+      const rid = m.roster_id
+      const starters = m.starters || []
+      const flexPlayers = starters.filter(pid => {
+        const player = allPlayers[pid]
+        return player && ["RB", "WR", "TE"].includes(player.position)
+      })
+      flexPlayers.forEach(pid => {
+        const score = allPlayerPoints[pid] || 0
+        if (score < minScore) {
+          minScore = score
+          winnerName = rosterToUser[rid]
+        }
+      })
+    })
+    if (winnerName && minScore !== Infinity) reason = `Their flex position contributed a measly ${minScore.toFixed(2)} points.`
+  }
+  
+  // Week 7: Lowest Bench Points
+  else if (week === 7) {
+    title = "Lowest Bench Points"
+    let minBenchPts = Infinity
+    matchups.forEach(m => {
+      const rid = m.roster_id
+      const starters = m.starters || []
+      const roster = rosters.find(r => r.roster_id === rid)
+      const players = roster?.players || []
+      const benchPts = players
+        .filter(p => !starters.includes(p))
+        .reduce((sum, p) => sum + (allPlayerPoints[p] || 0), 0)
+      if (benchPts < minBenchPts) {
+        minBenchPts = benchPts
+        winnerName = rosterToUser[rid]
+      }
+    })
+    if (winnerName && minBenchPts !== Infinity) reason = `Their bench combined for a pathetic ${minBenchPts.toFixed(2)} points.`
+  }
+  
+  // Week 8: Most Turnovers (QB performance proxy)
+  else if (week === 8) {
+    title = "Most Turnovers"
+    let worstQBPerf = -Infinity
+    let lowestScore = Infinity
+    matchups.forEach(m => {
+      const rid = m.roster_id
+      const starters = m.starters || []
+      const teamScore = m.points || 0
+      let qbDeficit = 0
+      starters.forEach(pid => {
+        const player = allPlayers[pid]
+        if (player && player.position === "QB") {
+          const pts = allPlayerPoints[pid] || 0
+          if (pts < 5) qbDeficit += (5 - pts)
+        }
+      })
+      if (qbDeficit > worstQBPerf || (qbDeficit === worstQBPerf && teamScore < lowestScore)) {
+        worstQBPerf = qbDeficit
+        lowestScore = teamScore
+        winnerName = rosterToUser[rid]
+      }
+    })
+    if (winnerName) {
+      if (worstQBPerf > 0) {
+        reason = `Their QB had terrible performance (deficit of ${worstQBPerf.toFixed(1)} points from baseline) and team scored only ${lowestScore.toFixed(1)} points.`
+      } else {
+        reason = `Had the lowest score (${lowestScore.toFixed(1)} points), likely due to turnovers.`
+      }
+    }
+  }
+  
+  // Week 10: Lames of the Greats
+  else if (week === 10) {
+    title = "Lames of the Greats"
+    let lowestBest = Infinity
+    matchups.forEach(m => {
+      const rid = m.roster_id
+      const roster = rosters.find(r => r.roster_id === rid)
+      const players = roster?.players || []
+      const bestScore = Math.max(...players.map(p => allPlayerPoints[p] || 0), 0)
+      if (bestScore < lowestBest && bestScore > 0) {
+        lowestBest = bestScore
+        winnerName = rosterToUser[rid]
+      }
+    })
+    if (winnerName && lowestBest !== Infinity) reason = `Their best player only scored ${lowestBest.toFixed(2)} points.`
+  }
+  
+  // Week 11: Lowest Performance from a Starter
+  else if (week === 11) {
+    title = "Lowest Performance from a Starter"
+    let minScore = Infinity
+    let playerName = "Unknown"
+    matchups.forEach(m => {
+      const rid = m.roster_id
+      const starters = m.starters || []
+      starters.forEach(pid => {
+        if (!pid || pid === "0") return
+        const score = allPlayerPoints[pid] || 0
+        if (score < minScore) {
+          minScore = score
+          winnerName = rosterToUser[rid]
+          playerName = allPlayers[pid]?.full_name || "Unknown"
+        }
+      })
+    })
+    if (winnerName && minScore !== Infinity) reason = `${playerName} started and only scored ${minScore.toFixed(2)} points.`
+  }
+  
+  // Week 12: Lowest TD (fallback to lowest scorer)
+  else if (week === 12) {
+    title = "Lowest TD"
+    let minScore = Infinity
+    matchups.forEach(m => {
+      const score = m.points || 0
+      if (score > 0 && score < minScore) {
+        minScore = score
+        winnerName = rosterToUser[m.roster_id]
+      }
+    })
+    if (winnerName) reason = `Scored only ${minScore.toFixed(2)} points with minimal touchdowns.`
+  }
+  
+  // Week 13: Biggest Gap From Projections (uses biggest blowout loss as proxy)
+  else if (week === 13) {
+    title = "Biggest Gap From Projections"
+    let biggestMargin = 0
+    const grouped = {}
+    matchups.forEach(m => {
+      const mid = m.matchup_id
+      if (!grouped[mid]) grouped[mid] = []
+      grouped[mid].push(m)
+    })
+    Object.values(grouped).forEach(pair => {
+      if (pair.length === 2) {
+        const [a, b] = pair
+        const marginA = (b.points || 0) - (a.points || 0)
+        const marginB = (a.points || 0) - (b.points || 0)
+        if (marginA > biggestMargin) {
+          biggestMargin = marginA
+          winnerName = rosterToUser[a.roster_id]
+        }
+        if (marginB > biggestMargin) {
+          biggestMargin = marginB
+          winnerName = rosterToUser[b.roster_id]
+        }
+      }
+    })
+    if (winnerName) reason = `Their team underperformed by ${biggestMargin.toFixed(2)} points (biggest loss margin).`
+  }
+  
+  // Week 14: Worst Decision (left best player on bench)
+  else if (week === 14) {
+    title = "Worst Decision of the Week"
+    let maxBenchScore = -1
+    let playerName = "Unknown"
+    matchups.forEach(m => {
+      const rid = m.roster_id
+      const starters = m.starters || []
+      const roster = rosters.find(r => r.roster_id === rid)
+      const players = roster?.players || []
+      players.forEach(pid => {
+        if (!starters.includes(pid)) {
+          const score = allPlayerPoints[pid] || 0
+          if (score > maxBenchScore) {
+            maxBenchScore = score
+            winnerName = rosterToUser[rid]
+            playerName = allPlayers[pid]?.full_name || "Unknown"
+          }
+        }
+      })
+    })
+    if (winnerName && maxBenchScore > 0) reason = `Left ${playerName} on the bench, who exploded for ${maxBenchScore.toFixed(2)} points.`
+  }
+  
+  // Default fallback: biggest loss margin
+  else {
+    title = "Biggest Blowout Loss"
+    let biggestMargin = 0
+    const grouped = {}
+    matchups.forEach(m => {
+      const mid = m.matchup_id
+      if (!grouped[mid]) grouped[mid] = []
+      grouped[mid].push(m)
+    })
+    Object.values(grouped).forEach(pair => {
+      if (pair.length === 2) {
+        const [a, b] = pair
+        const marginA = (b.points || 0) - (a.points || 0)
+        const marginB = (a.points || 0) - (b.points || 0)
+        if (marginA > biggestMargin) {
+          biggestMargin = marginA
+          winnerName = rosterToUser[a.roster_id]
+        }
+        if (marginB > biggestMargin) {
+          biggestMargin = marginB
+          winnerName = rosterToUser[b.roster_id]
+        }
+      }
+    })
+    if (winnerName) reason = `Lost by ${biggestMargin.toFixed(2)} points.`
+  }
+  
+  if (winnerName) {
+    return { title, team: winnerName, reason }
+  }
+  return null
 }
 
 const Card = ({ children, style = {}, onClick }) => (
@@ -295,17 +585,34 @@ const Awards = ({ data }) => {
   useEffect(() => {
     const calculate = async () => {
       setLoading(true)
+      
+      // Fetch all players for position data
+      const allPlayers = await api.players()
+      
       const result = []
       for (let w = Math.max(1, currentWeek - 2); w <= currentWeek; w++) {
         const matchups = await api.matchups(w)
         if (!matchups || matchups.length === 0) continue
+        
         const rosterToUser = {}
         rosters?.forEach(r => { rosterToUser[r.roster_id] = userMap[r.owner_id]?.name || `Team ${r.roster_id}` })
+        
+        // Calculate basic awards
         const scores = matchups.map(m => ({ team: rosterToUser[m.roster_id], points: m.points || 0 })).filter(t => t.points > 0)
         if (scores.length === 0) continue
+        
         const top = scores.reduce((max, t) => t.points > max.points ? t : max, scores[0])
         const low = scores.reduce((min, t) => t.points < min.points ? t : min, scores[0])
-        result.push({ week: w, topDawg: top, superWeenie: low, horsesAss: { name: low.team, points: low.points } })
+        
+        // Calculate Horse's Ass with full logic
+        const horsesAss = await calculateHorsesAss(w, matchups, rosters, rosterToUser, allPlayers)
+        
+        result.push({ 
+          week: w, 
+          topDawg: { team: top.team, points: top.points }, 
+          superWeenie: { team: low.team, points: low.points }, 
+          horsesAss: horsesAss || { title: "Biggest Loss", team: low.team, reason: `Scored ${low.points.toFixed(2)} points.` }
+        })
       }
       setAwards(result.reverse())
       setLoading(false)
@@ -322,25 +629,40 @@ const Awards = ({ data }) => {
         awards.map((w, i) => (
           <Card key={i} style={{ marginBottom: '20px' }}>
             <div style={{ color: colors.accent, fontSize: '11px', fontWeight: 600, marginBottom: '16px', letterSpacing: '2px' }}>WEEK {w.week}</div>
+            
+            {/* Top Dawg */}
             <div style={{ padding: '16px', background: `${colors.gold}15`, borderRadius: '12px', borderLeft: `4px solid ${colors.gold}`, marginBottom: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <span style={{ fontSize: '28px' }}>👑</span>
-                <div style={{ flex: 1 }}><div style={{ color: colors.gold, fontSize: '10px', fontWeight: 600 }}>TOP DAWG</div><div style={{ color: colors.white, fontSize: '17px', fontWeight: 700 }}>{w.topDawg.team}</div></div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ color: colors.gold, fontSize: '10px', fontWeight: 600 }}>TOP DAWG</div>
+                  <div style={{ color: colors.white, fontSize: '17px', fontWeight: 700 }}>{w.topDawg.team}</div>
+                </div>
                 <div style={{ color: colors.gold, fontSize: '18px', fontWeight: 700 }}>{w.topDawg.points.toFixed(1)}</div>
               </div>
             </div>
+            
+            {/* Super Weenie */}
             <div style={{ padding: '16px', background: `${colors.danger}15`, borderRadius: '12px', borderLeft: `4px solid ${colors.danger}`, marginBottom: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <span style={{ fontSize: '28px' }}>🌭</span>
-                <div style={{ flex: 1 }}><div style={{ color: colors.danger, fontSize: '10px', fontWeight: 600 }}>SUPER WEENIE</div><div style={{ color: colors.white, fontSize: '17px', fontWeight: 700 }}>{w.superWeenie.team}</div></div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ color: colors.danger, fontSize: '10px', fontWeight: 600 }}>SUPER WEENIE</div>
+                  <div style={{ color: colors.white, fontSize: '17px', fontWeight: 700 }}>{w.superWeenie.team}</div>
+                </div>
                 <div style={{ color: colors.danger, fontSize: '18px', fontWeight: 700 }}>{w.superWeenie.points.toFixed(1)}</div>
               </div>
             </div>
+            
+            {/* Horse's Ass */}
             <div style={{ padding: '16px', background: `${colors.warning}15`, borderRadius: '12px', borderLeft: `4px solid ${colors.warning}` }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <span style={{ fontSize: '28px' }}>🐴</span>
-                <div style={{ flex: 1 }}><div style={{ color: colors.warning, fontSize: '10px', fontWeight: 600 }}>HORSE'S ASS</div><div style={{ color: colors.white, fontSize: '17px', fontWeight: 700 }}>{w.horsesAss.name}</div></div>
-                <div style={{ color: colors.warning, fontSize: '18px', fontWeight: 700 }}>{w.horsesAss.points.toFixed(1)}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ color: colors.warning, fontSize: '10px', fontWeight: 600 }}>HORSE'S ASS: {w.horsesAss.title?.toUpperCase()}</div>
+                  <div style={{ color: colors.white, fontSize: '17px', fontWeight: 700 }}>{w.horsesAss.team}</div>
+                  <div style={{ color: colors.silver, fontSize: '12px', marginTop: '4px' }}>{w.horsesAss.reason}</div>
+                </div>
               </div>
             </div>
           </Card>
