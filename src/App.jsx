@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts'
 import { Trophy, TrendingUp, Users, MessageCircle, Award, ChevronRight, Send, User, RefreshCw, Crown } from 'lucide-react'
 
-const LEAGUE_ID = "1137882621653094400"
+const LEAGUE_ID = "1258131568132624384"
 
 const colors = {
   navy: '#1e3a5f',
