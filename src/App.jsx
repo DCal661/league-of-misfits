@@ -305,7 +305,7 @@ const Awards = ({ data }) => {
         if (scores.length === 0) continue
         const top = scores.reduce((max, t) => t.points > max.points ? t : max, scores[0])
         const low = scores.reduce((min, t) => t.points < min.points ? t : min, scores[0])
-        result.push({ week: w, topDawg: top, superWeenie: low, horsesAss: { name: low.team, detail: `${low.points.toFixed(2)} pts` } })
+        result.push({ week: w, topDawg: top, superWeenie: low, horsesAss: { name: low.team, points: low.points } })
       }
       setAwards(result.reverse())
       setLoading(false)
@@ -339,7 +339,8 @@ const Awards = ({ data }) => {
             <div style={{ padding: '16px', background: `${colors.warning}15`, borderRadius: '12px', borderLeft: `4px solid ${colors.warning}` }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <span style={{ fontSize: '28px' }}>🐴</span>
-                <div style={{ flex: 1 }}><div style={{ color: colors.warning, fontSize: '10px', fontWeight: 600 }}>HORSE'S ASS</div><div style={{ color: colors.white, fontSize: '17px', fontWeight: 700 }}>{w.horsesAss.name}</div><div style={{ color: colors.silver, fontSize: '12px' }}>{w.horsesAss.detail}</div></div>
+                <div style={{ flex: 1 }}><div style={{ color: colors.warning, fontSize: '10px', fontWeight: 600 }}>HORSE'S ASS</div><div style={{ color: colors.white, fontSize: '17px', fontWeight: 700 }}>{w.horsesAss.name}</div></div>
+                <div style={{ color: colors.warning, fontSize: '18px', fontWeight: 700 }}>{w.horsesAss.points.toFixed(1)}</div>
               </div>
             </div>
           </Card>
